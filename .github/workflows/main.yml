@@ -1,0 +1,36 @@
+name: "Test all bots"
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+
+  tests:
+    name: "TestsOnCommits"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        bot-dir:
+          - ./CMP01
+          - ./CMP02
+          - ./CMP03
+
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+    
+      - name: Install dependencies
+        working-directory: ${{ matrix.bot-dir }}
+        shell: bash
+        run: npm install
+    
+      - name: Run tests
+        working-directory: ${{ matrix.bot-dir }}
+        shell: bash
+        run: npm run test
