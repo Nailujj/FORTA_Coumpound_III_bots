@@ -33,4 +33,4 @@ jobs:
       - name: Run tests
         working-directory: ${{ matrix.bot-dir }}
         shell: bash
-        run: npm run test
+        run: npm test
