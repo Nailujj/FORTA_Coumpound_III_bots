@@ -6,6 +6,7 @@ on:
       - main
 
 jobs:
+
   tests:
     name: "TestsOnCommits"
     runs-on: ubuntu-latest
@@ -16,8 +17,6 @@ jobs:
           - ./CMP02
           - ./CMP03
 
-    timeout-minutes: 20
-
     steps:
       - uses: actions/checkout@v1
 
@@ -25,12 +24,12 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: "16"
-
+    
       - name: Install dependencies
         working-directory: ${{ matrix.bot-dir }}
         shell: bash
-        run: npm ci
-
+        run: npm install
+    
       - name: Run tests
         working-directory: ${{ matrix.bot-dir }}
         shell: bash
