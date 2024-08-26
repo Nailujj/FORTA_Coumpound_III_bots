@@ -1,5 +1,5 @@
 import { Finding, HandleTransaction, TransactionEvent, FindingSeverity, FindingType } from "forta-agent";
-import { SUPPLY_EVENT_SIGNATURE } from "./constants";
+import { SUPPLY_EVENT_SIGNATURE, SUPPLY_POOL_ADDRESS } from "./constants";
 
 import { amountOverThreshold } from "./thresholdCache/thresholdCache";
 
@@ -7,7 +7,7 @@ export function provideHandleTransaction(): HandleTransaction {
   return async function handleTransaction(txEvent: TransactionEvent) {
     const findings: Finding[] = [];
 
-    const swapTxs = txEvent.filterLog(SUPPLY_EVENT_SIGNATURE);
+    const swapTxs = txEvent.filterLog(SUPPLY_EVENT_SIGNATURE, SUPPLY_POOL_ADDRESS);
 
     const timestamp = txEvent.timestamp;
 

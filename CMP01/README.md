@@ -2,7 +2,7 @@
 
 ## Description
 
- CMP01 bot is a monitoring tool designed to track individual user investments over a 24-hour period, generating alerts when the user surpasses a dynamic threshold during supply events. The associated proxy contract for this bot is [`0x1B0e765F6224C21223AeA2af16c1C46E38885a40`](https://etherscan.io/address/0x1B0e765F6224C21223AeA2af16c1C46E38885a40).
+ CMP01 bot is a monitoring tool designed to track individual user investments over a 24-hour period, generating alerts when the user surpasses a dynamic threshold during supply events. The associated proxy contract for this bot is [`0xc3d688B66703497DAA19211EEdff47f25384cdc3`](https://etherscan.io/address/0xc3d688B66703497DAA19211EEdff47f25384cdc3) 
 
 The threshold is established by calculating the average of transactions from the initial transaction throughout the 24-hour period, and it is set at 20% above the average of all transactions within that timeframe.
 

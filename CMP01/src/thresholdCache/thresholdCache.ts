@@ -1,14 +1,14 @@
 import { LRUCache } from "lru-cache";
 import { ethers } from "ethers";
-
 import { BigNumber } from "@ethersproject/bignumber";
 
 export let THRESHOLD: BigNumber = ethers.BigNumber.from("10");
 
-export let totalSupplySum: BigNumber = ethers.BigNumber.from("0");
-export let supplyCounter: number = 0;
-
 export const amountCache: LRUCache<string, { timestamp: number; amount: BigNumber }> = new LRUCache({
+  max: 1000,
+});
+
+export const userSupplyTracker: LRUCache<string, { totalSupplySum: BigNumber; supplyCounter: number }> = new LRUCache({
   max: 1000,
 });
 
@@ -19,93 +19,83 @@ export const amountOverThreshold = async (
 ): Promise<number> => {
   const bigAmount = BigNumber.from(amount);
   const oldThreshold = THRESHOLD;
-  // Check if there is an entry in the cache for the current userAddress
+
+  if (!userSupplyTracker.has(userAddress)) {
+    userSupplyTracker.set(userAddress, {
+      totalSupplySum: BigNumber.from("0"),
+      supplyCounter: 0,
+    });
+  }
+
+  const userTracker = userSupplyTracker.get(userAddress) || { totalSupplySum: BigNumber.from("0"), supplyCounter: 0 };
+
   if (amountCache.has(userAddress)) {
     const cachedData = amountCache.get(userAddress) || { timestamp: 0, amount: BigNumber.from("0") };
 
-    // Check if the new timestamp is within the 24-hour window
     if (timestamp - cachedData.timestamp <= 24 * 60 * 60) {
-      const totalAmountWithinDay = BigNumber.from(cachedData.amount).add(bigAmount);
+      const totalAmountWithinDay = cachedData.amount.add(bigAmount);
 
-      // Update the cache with the provided timestamp and accumulated amount
       amountCache.set(userAddress, {
         timestamp: timestamp,
         amount: totalAmountWithinDay,
       });
 
-      // Update the counters
-      totalSupplySum = totalSupplySum.add(bigAmount);
-      supplyCounter++;
+      // Update der nutzerspezifischen Zähler
+      userTracker.totalSupplySum = userTracker.totalSupplySum.add(bigAmount);
+      userTracker.supplyCounter++;
 
-      // Calculate the new threshold as 20% above the average
-      const average = totalSupplySum.div(supplyCounter);
+      userSupplyTracker.set(userAddress, userTracker);
+
+      // Schwellenwert für diesen Nutzer berechnen
+      const average = userTracker.totalSupplySum.div(userTracker.supplyCounter);
       THRESHOLD = average.add(average.mul(20).div(100));
 
-      // Check if the total amount within the last day is over the  old threshold
       if (totalAmountWithinDay.gt(oldThreshold)) {
-        // Clear the amount to prevent multiple alerts within 24 hours
         amountCache.set(userAddress, { timestamp: timestamp, amount: BigNumber.from("0") });
         return totalAmountWithinDay.sub(oldThreshold).toNumber();
       }
     }
   } else {
-    // If there is no entry in the cache, update the cache with the provided timestamp and amount
     amountCache.set(userAddress, {
       timestamp: timestamp,
       amount: bigAmount,
     });
 
-    // Update the counters
-    totalSupplySum = totalSupplySum.add(bigAmount);
-    supplyCounter++;
+    userTracker.totalSupplySum = userTracker.totalSupplySum.add(bigAmount);
+    userTracker.supplyCounter++;
 
-    // Calculate the new threshold as 20% above the average
-    const average = totalSupplySum.div(supplyCounter);
+    userSupplyTracker.set(userAddress, userTracker);
+
+    const average = userTracker.totalSupplySum.div(userTracker.supplyCounter);
     THRESHOLD = average.add(average.mul(20).div(100));
 
-    // Check if the current amount is greater than the old threshold
     if (bigAmount.gt(oldThreshold)) {
-      // Clear the amount to prevent multiple alerts within 24 hours
       amountCache.set(userAddress, { timestamp: timestamp, amount: BigNumber.from("0") });
-
       return bigAmount.sub(oldThreshold).toNumber();
     }
   }
 
-  // Return 0 since the total amount within the last day is not over the threshold
   return 0;
 };
 
-// Function to clear the cache
+// Funktion zum Leeren des Caches
 export const clearCache = () => {
   amountCache.clear();
-  //clear counters too
+  userSupplyTracker.clear();
 };
 
-//Function to reset sum and counter
-export const clearSupplyTracker = () => {
-  totalSupplySum = ethers.BigNumber.from("0");
-  supplyCounter = 0;
-};
-
-// Function to clear the cache every 24 hours for each user
+// Funktion zum periodischen Leeren des Caches für jeden Nutzer
 export const clearCachePeriodically = () => {
-  setInterval(
-    () => {
-      // Get the current timestamp
-      const currentTime = Date.now();
+  setInterval(() => {
+    const currentTime = Date.now();
 
-      // Iterate over the cache entries
-      amountCache.forEach((data, userAddress) => {
-        // Check if the user's first transaction timestamp is within the last 24 hours
-        if (data.timestamp >= currentTime - 24 * 60 * 60 * 1000) {
-          // If within the 24-hour window, clear the cache entry for that user
-          amountCache.delete(userAddress);
-        }
-      });
-    },
-    60 * 60 * 1000
-  );
+    amountCache.forEach((data, userAddress) => {
+      if (data.timestamp >= currentTime - 24 * 60 * 60 * 1000) {
+        amountCache.delete(userAddress);
+        userSupplyTracker.delete(userAddress);
+      }
+    });
+  }, 60 * 60 * 1000);
 };
 
 export const setThreshold = (newThreshold: any): void => {

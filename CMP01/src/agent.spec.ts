@@ -1,11 +1,10 @@
 import { Finding, FindingSeverity, FindingType, HandleTransaction } from "forta-agent";
-//import { POOL_INIT_CODE_HASH, UNISWAP_POOL_FUNCTION_SIGNATURE, SWAP_FUNCTION_SIGNATURE } from "./constants";
 import { TestTransactionEvent } from "forta-agent-tools/lib/test";
 import { createAddress } from "forta-agent-tools";
 import { ethers } from "ethers";
 import { provideHandleTransaction } from "./agent";
 import { SUPPLY_POOL_ADDRESS, SUPPLY_EVENT_SIGNATURE, WRONG_SUPPLY_EVENT_SIGNATURE } from "./constants";
-import { clearCache, setThreshold, THRESHOLD, clearSupplyTracker } from "./thresholdCache/thresholdCache";
+import { clearCache, amountOverThreshold, setThreshold, THRESHOLD, userSupplyTracker } from "./thresholdCache/thresholdCache";
 
 describe("Compound 3 bot tests", () => {
   const timestamp = Date.now();
@@ -29,7 +28,6 @@ describe("Compound 3 bot tests", () => {
   });
   beforeEach(() => {
     clearCache();
-    clearSupplyTracker();
     setThreshold(10);
     mockTxEvent = new TestTransactionEvent();
   });

@@ -1,12 +1,11 @@
 import { ethers } from "ethers";
-import { clearCache, amountOverThreshold, clearSupplyTracker, setThreshold, THRESHOLD } from "./thresholdCache";
+import { clearCache, amountOverThreshold, setThreshold, THRESHOLD } from "./thresholdCache";
 
 describe("Threshold Cache Functions", () => {
   beforeEach(() => {
     // Set the initial threshold
     setThreshold(10);
     clearCache();
-    clearSupplyTracker();
   });
 
   afterAll(() => {
