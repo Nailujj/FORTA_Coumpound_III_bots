@@ -1,7 +1,9 @@
 import { Finding, HandleTransaction, TransactionEvent, FindingSeverity, FindingType } from "forta-agent";
 import { SUPPLY_EVENT_SIGNATURE, SUPPLY_POOL_ADDRESS } from "./constants";
 
-import { amountOverThreshold } from "./thresholdCache/thresholdCache";
+import { amountOverThreshold, clearCachePeriodically} from "./thresholdCache/thresholdCache";
+
+clearCachePeriodically();
 
 export function provideHandleTransaction(): HandleTransaction {
   return async function handleTransaction(txEvent: TransactionEvent) {

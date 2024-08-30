@@ -1,8 +1,5 @@
 import { LRUCache } from "lru-cache";
-import { ethers } from "ethers";
-import { BigNumber } from "@ethersproject/bignumber";
-
-export let THRESHOLD: BigNumber = ethers.BigNumber.from("10");
+import { ethers, BigNumber } from "ethers";
 
 export const amountCache: LRUCache<string, { timestamp: number; amount: BigNumber }> = new LRUCache({
   max: 1000,
@@ -12,92 +9,49 @@ export const userSupplyTracker: LRUCache<string, { totalSupplySum: BigNumber; su
   max: 1000,
 });
 
-export const amountOverThreshold = async (
-  userAddress: string,
-  amount: BigNumber,
-  timestamp: number
-): Promise<number> => {
-  const bigAmount = BigNumber.from(amount);
-  const oldThreshold = THRESHOLD;
+export const userThresholds = new Map<string, BigNumber>();
 
-  if (!userSupplyTracker.has(userAddress)) {
-    userSupplyTracker.set(userAddress, {
-      totalSupplySum: BigNumber.from("0"),
-      supplyCounter: 0,
-    });
-  }
-
-  const userTracker = userSupplyTracker.get(userAddress) || { totalSupplySum: BigNumber.from("0"), supplyCounter: 0 };
-
-  if (amountCache.has(userAddress)) {
-    const cachedData = amountCache.get(userAddress) || { timestamp: 0, amount: BigNumber.from("0") };
-
-    if (timestamp - cachedData.timestamp <= 24 * 60 * 60) {
-      const totalAmountWithinDay = cachedData.amount.add(bigAmount);
-
-      amountCache.set(userAddress, {
-        timestamp: timestamp,
-        amount: totalAmountWithinDay,
-      });
-
-      // Update der nutzerspezifischen Zähler
-      userTracker.totalSupplySum = userTracker.totalSupplySum.add(bigAmount);
-      userTracker.supplyCounter++;
-
-      userSupplyTracker.set(userAddress, userTracker);
-
-      // Schwellenwert für diesen Nutzer berechnen
-      const average = userTracker.totalSupplySum.div(userTracker.supplyCounter);
-      THRESHOLD = average.add(average.mul(20).div(100));
-
-      if (totalAmountWithinDay.gt(oldThreshold)) {
-        amountCache.set(userAddress, { timestamp: timestamp, amount: BigNumber.from("0") });
-        return totalAmountWithinDay.sub(oldThreshold).toNumber();
-      }
-    }
-  } else {
-    amountCache.set(userAddress, {
-      timestamp: timestamp,
-      amount: bigAmount,
-    });
-
-    userTracker.totalSupplySum = userTracker.totalSupplySum.add(bigAmount);
-    userTracker.supplyCounter++;
-
-    userSupplyTracker.set(userAddress, userTracker);
-
-    const average = userTracker.totalSupplySum.div(userTracker.supplyCounter);
-    THRESHOLD = average.add(average.mul(20).div(100));
-
-    if (bigAmount.gt(oldThreshold)) {
-      amountCache.set(userAddress, { timestamp: timestamp, amount: BigNumber.from("0") });
-      return bigAmount.sub(oldThreshold).toNumber();
-    }
-  }
-
-  return 0;
+export const setThresholdForUser = (userAddress: string, threshold: BigNumber) => {
+  userThresholds.set(userAddress, threshold);
 };
 
-// Funktion zum Leeren des Caches
-export const clearCache = () => {
-  amountCache.clear();
-  userSupplyTracker.clear();
+export const getThresholdForUser = (userAddress: string): BigNumber => {
+  return userThresholds.get(userAddress) || ethers.BigNumber.from("10");
 };
 
-// Funktion zum periodischen Leeren des Caches für jeden Nutzer
 export const clearCachePeriodically = () => {
   setInterval(() => {
-    const currentTime = Date.now();
+    const currentTimeInSeconds = Math.floor(Date.now() / 1000);
 
     amountCache.forEach((data, userAddress) => {
-      if (data.timestamp >= currentTime - 24 * 60 * 60 * 1000) {
+      if (data.timestamp <= currentTimeInSeconds - 24 * 60 * 60) {
         amountCache.delete(userAddress);
         userSupplyTracker.delete(userAddress);
+        userThresholds.delete(userAddress);
       }
     });
   }, 60 * 60 * 1000);
 };
 
-export const setThreshold = (newThreshold: any): void => {
-  THRESHOLD = newThreshold;
+export const amountOverThreshold = async (userAddress: string, amount: BigNumber, increment: number): Promise<number> => {
+  const userTracker = userSupplyTracker.get(userAddress) || { totalSupplySum: BigNumber.from("0"), supplyCounter: 0 };
+  const threshold = getThresholdForUser(userAddress);
+
+  userTracker.totalSupplySum = userTracker.totalSupplySum.add(amount);
+  userTracker.supplyCounter += increment;
+  userSupplyTracker.set(userAddress, userTracker);
+
+  const overThreshold = userTracker.totalSupplySum.sub(threshold).toNumber();
+  return overThreshold > 0 ? overThreshold : 0;
+};
+
+export const setThreshold = (newThreshold: BigNumber) => {
+  // No longer needed globally since thresholds are per user
+  console.warn("Global threshold is deprecated. Use setThresholdForUser instead.");
+};
+
+export const clearCache = () => {
+  amountCache.clear();
+  userSupplyTracker.clear();
+  userThresholds.clear();
 };

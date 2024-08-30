@@ -2,9 +2,9 @@ import { Finding, FindingSeverity, FindingType, HandleTransaction } from "forta-
 import { TestTransactionEvent } from "forta-agent-tools/lib/test";
 import { createAddress } from "forta-agent-tools";
 import { ethers } from "ethers";
-import { provideHandleTransaction } from "./agent";
+import { provideHandleTransaction }from "./agent";
 import { SUPPLY_POOL_ADDRESS, SUPPLY_EVENT_SIGNATURE, WRONG_SUPPLY_EVENT_SIGNATURE } from "./constants";
-import { clearCache, amountOverThreshold, setThreshold, THRESHOLD, userSupplyTracker } from "./thresholdCache/thresholdCache";
+import { clearCache, amountOverThreshold, setThresholdForUser, getThresholdForUser, userSupplyTracker } from "./thresholdCache/thresholdCache";
 
 describe("Compound 3 bot tests", () => {
   const timestamp = Date.now();
@@ -22,13 +22,15 @@ describe("Compound 3 bot tests", () => {
   let findings = [];
   let mockTxEvent = new TestTransactionEvent();
   let amountOverThreshold;
+  
   beforeAll(() => {
     handleTransaction = provideHandleTransaction();
     mockTxEvent = new TestTransactionEvent();
   });
+  
   beforeEach(() => {
     clearCache();
-    setThreshold(10);
+    setThresholdForUser(userDummyAddress, ethers.BigNumber.from(10)); // Set threshold for the user
     mockTxEvent = new TestTransactionEvent();
   });
 
@@ -36,6 +38,7 @@ describe("Compound 3 bot tests", () => {
     findings = await handleTransaction(mockTxEvent);
     expect(findings).toStrictEqual([]);
   });
+
   it("returns a empty findings when the transaction is not a Supply", async () => {
     mockTxEvent.setBlock(0);
     mockTxEvent.addEventLog(WRONG_SUPPLY_EVENT_SIGNATURE, SUPPLY_POOL_ADDRESS, mockEvent);
@@ -43,6 +46,7 @@ describe("Compound 3 bot tests", () => {
     findings = await handleTransaction(mockTxEvent);
     expect(findings).toStrictEqual([]);
   });
+
   it("returns a empty findings when the transaction is using the wrong pool address", async () => {
     mockTxEvent.setBlock(0);
 
@@ -51,6 +55,7 @@ describe("Compound 3 bot tests", () => {
     findings = await handleTransaction(mockTxEvent);
     expect(findings).toStrictEqual([]);
   });
+
   it("returns a empty findings when the transactions does not meet the given threshold", async () => {
     mockTxEvent.setBlock(0);
     mockTxEvent.addEventLog(WRONG_SUPPLY_EVENT_SIGNATURE, SUPPLY_POOL_ADDRESS, mockEventTwo);
@@ -59,8 +64,9 @@ describe("Compound 3 bot tests", () => {
     findings = await handleTransaction(mockTxEvent);
     expect(findings).toStrictEqual([]);
   });
+
   it("returns findings when a transaction goes over the given threshold", async () => {
-    amountOverThreshold = mockAmountOne.sub(THRESHOLD);
+    amountOverThreshold = mockAmountOne.sub(getThresholdForUser(userDummyAddress)); // Replace THRESHOLD with getThresholdForUser
 
     mockTxEvent.setBlock(0);
     mockTxEvent.addEventLog(SUPPLY_EVENT_SIGNATURE, SUPPLY_POOL_ADDRESS, mockEvent);
@@ -83,7 +89,8 @@ describe("Compound 3 bot tests", () => {
       }),
     ]);
   });
-  it("returns findings when multiple transactions goes over the given threshold", async () => {
+
+  it("returns findings when multiple transactions go over the given threshold", async () => {
     const mockTxEventTwo = new TestTransactionEvent();
     mockTxEvent.setBlock(0);
     mockTxEventTwo.setBlock(0);
@@ -93,7 +100,7 @@ describe("Compound 3 bot tests", () => {
     mockTxEventTwo.setTimestamp(timestamp - 40);
     findings = await handleTransaction(mockTxEventTwo);
     expect(findings).toStrictEqual([]);
-    const totalAmountOver = mockAmountOne.add(mockAmountTwo).sub(THRESHOLD);
+    const totalAmountOver = mockAmountOne.add(mockAmountTwo).sub(getThresholdForUser(userDummyAddress)); // Replace THRESHOLD with getThresholdForUser
     findings = await handleTransaction(mockTxEvent);
 
     expect(findings).toStrictEqual([
@@ -112,8 +119,9 @@ describe("Compound 3 bot tests", () => {
       }),
     ]);
   });
-  it("returns findings for a transaction goes over the newly calculated threshold", async () => {
-    amountOverThreshold = mockAmountThree.sub(THRESHOLD);
+
+  it("returns findings for a transaction that goes over the newly calculated threshold", async () => {
+    amountOverThreshold = mockAmountThree.sub(getThresholdForUser(userDummyAddress)); // Replace THRESHOLD with getThresholdForUser
 
     mockTxEvent.setBlock(0);
     mockTxEvent.addEventLog(SUPPLY_EVENT_SIGNATURE, SUPPLY_POOL_ADDRESS, mockEventThree);
